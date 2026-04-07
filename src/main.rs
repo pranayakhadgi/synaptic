@@ -1,87 +1,190 @@
 use clap::{Parser, Subcommand};
-use rusqlite::{Connection, Result};
+use chrono::NaiveDate;
+use colored::*;
+use db::{Database, TaskStatus};
 
-//the main CLI struct 
+mod db;
+
 #[derive(Parser)]
-#[command(name = "JARVIS", about = "Your personal assistant")]
+#[command(name = "synaptic")]
+#[command(about = "Personal cognitive operating system")]
+#[command(version = "0.2.0")]
 struct Cli {
-	#[command(subcommand)]
-	command: Commands,
+    #[command(subcommand)]
+    command: Commands,
 }
 
-//subcommands
 #[derive(Subcommand)]
 enum Commands {
-	//add a new task
- 	 Add {
-		//task description
-		name: String,
-		// due date
-		#[arg(long)]
-		due: Option<String>,
-	     },
-	    ///lists all the tasks
-	   List,
+    /// Add a new task
+    Add {
+        /// Task description
+        title: String,
+        /// Due date (YYYY-MM-DD)
+        #[arg(short, long)]
+        due: Option<NaiveDate>,
+        /// Tags (can use multiple times)
+        #[arg(short, long)]
+        tag: Vec<String>,
+    },
+    /// List all tasks
+    List {
+        /// Show completed tasks too
+        #[arg(short, long)]
+        all: bool,
+    },
+    /// Mark task as complete
+    Done {
+        /// Task ID
+        id: u64,
+    },
+    /// Remove a task permanently
+    Remove {
+        /// Task ID
+        id: u64,
+    },
 }
 
-//the main function 
-fn main() -> Result<()> {
-	let cli = Cli::parse();
-
-	// Open (or creates) the database in my home directory
-	let db_path = dirs_home().unwrap_or_else(|| ".".into()) + "/jarvis.db";
-	let conn = Connection::open(&db_path)?;
-
-	//Create the task table if it doesn't exist
- 	conn.execute_batch("
-		CREATE TABLE IF NOT EXISTS tasks (
-			id	INTEGER PRIMARY KEY AUTOINCREMENT,
-			name 	TEXT NOT NULL,
-			due 	TEXT,
-			done 	INTEGER DEFAULT 0,
-			created	TEXT DEFAULT (datetime('now'))
-			);
-			   ")?;
-
-	match cli.command {
-		Commands::Add { name, due } => {
-			conn.execute(
-			    "INSERT INTO tasks (name, due) VALUES (?1, ?2)",
-			    (&name, &due),
-			            )?;
-			println!("Added: {}", name);
-		if let Some(d) = due {
-			println!("    Due: {}", d);
-						}
-			  }
-		Commands::List => {
-			let mut stmt = conn.prepare(
-				"SELECT id, name, due, done FROM tasks ORDER BY due ASC NULLS LAST"
-						   )?;
-			let tasks: Vec<(i64, String, Option<String>, bool)> = stmt
-				.query_map([], |row| {
-					Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get::<_, i32>(3)? != 0))
-						     })?
-			 	.filter_map(|r| r.ok())
-				.collect();
-
-			if tasks.is_empty() {
-			println!("No tasks yet. Add one with: jarvis add \"task name\"");
-		         } else {
-			   println!("\n------ your tasks ------------------------");
-			     for (id, name, due, done) in tasks {
-			     let status = if done { "v" } else { "o" };
-	                                 		     let due_str = due.unwrap_or_else(|| "no due date".into());
-			   println!("  {} [{}]  {} - {}", status, id, name, due_str);
-     										   }
-			println!("----------------------------------\n");
-				}
-   			}
-		     }
-		     
-                    Ok(())
+fn main() {
+    let db = Database::open("synaptic.db").expect("Failed to open database");
+    let cli = Cli::parse();
+    
+    match cli.command {
+        Commands::Add { title, due, tag } => {
+            let id = db.add_task(&title, due, tag.clone())
+                .expect("Failed to add task");
+            
+            let due_str = due.map(|d| d.to_string())
+                .unwrap_or_else(|| "no due date".to_string());
+            
+            let tag_str = if tag.is_empty() {
+                "no tags".to_string()
+            } else {
+                format!("tags: {}", tag.join(", "))
+            };
+            
+            println!("{} {} {} (Due: {}, {})", 
+                "✓".green().bold(),
+                "Created task".green(),
+                id.to_string().cyan(),
+                due_str.yellow(),
+                tag_str.dimmed()
+            );
+        }
+        
+        Commands::List { all } => {
+            let tasks = db.list_tasks(all).expect("Failed to list tasks");
+            
+            if tasks.is_empty() {
+                println!("{}", "No tasks found. Your mind is clear.".dimmed());
+                return;
+            }
+            
+            println!("{:<4} {:<10} {:<20} {:<12} {}", 
+                "ID".bold(), "STATUS".bold(), "TITLE".bold(), "DUE".bold(), "TAGS".bold()
+            );
+            println!("{}", "─".repeat(60).dimmed());
+            
+            for task in tasks {
+                let status_icon = if task.status == TaskStatus::Done {
+                    "✓".green()
+                } else {
+                    "○".dimmed()
+                };
+                
+                let status_text = if task.status == TaskStatus::Done {
+                    "done".green()
+                } else {
+                    "todo".white()
+                };
+                
+                let due_str = match task.due_date {
+                    Some(d) => {
+                        let today = chrono::Utc::now().date_naive();
+                        let due_naive = d.date_naive();
+                        
+                        if due_naive < today {
+                            d.format("%Y-%m-%d").to_string().red().to_string()
+                        } else if due_naive == today {
+                            "TODAY".yellow().to_string()
+                        } else {
+                            d.format("%Y-%m-%d").to_string().dimmed().to_string()
+                        }
+                    }
+                    None => "-".dimmed().to_string(),
+                };
+                
+                let tags_str = if task.tags.is_empty() {
+                    "".to_string()
+                } else {
+                    task.tags.iter()
+                        .map(|t| format_tag(t))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                };
+                
+                let title = if task.status == TaskStatus::Done {
+                    task.title.dimmed().to_string()
+                } else {
+                    task.title.white().to_string()
+                };
+                
+                println!("{:<4} {:<10} {:<20} {:<12} {}", 
+                    task.id.to_string().dimmed(),
+                    format!("{} {}", status_icon, status_text),
+                    truncate(&title, 20),
+                    due_str,
+                    tags_str
+                );
+            }
+        }
+        
+        Commands::Done { id } => {
+            match db.complete_task(id) {
+                Ok(true) => println!("{} Task {} marked as {}", 
+                    "✓".green(), 
+                    id.to_string().cyan(),
+                    "done".green()
+                ),
+                Ok(false) => println!("{} Task {} not found", 
+                    "✗".red(), 
+                    id
+                ),
+                Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
+            }
+        }
+        
+        Commands::Remove { id } => {
+            match db.delete_task(id) {
+                Ok(true) => println!("{} Task {} {}", 
+                    "🗑".red(), 
+                    id.to_string().cyan(),
+                    "deleted".red()
+                ),
+                Ok(false) => println!("{} Task {} not found", 
+                    "✗".red(), 
+                    id
+                ),
+                Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
+            }
+        }
+    }
 }
 
-fn dirs_home() -> Option<String> {
-	std::env::var("HOME").ok()
+fn format_tag(tag: &str) -> String {
+    let colored = match tag.as_str() {
+        "work" => tag.yellow(),
+        "personal" => tag.blue(),
+        "urgent" => tag.red().bold(),
+        _ => tag.dimmed(),
+    };
+    format!("[{}]", colored)
+}
+
+fn truncate(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        format!("{}…", &s[..max_len-1])
+    } else {
+        s.to_string()
+    }
 }
