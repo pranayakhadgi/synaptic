@@ -3,7 +3,7 @@ use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-	pub struct Task {
+pub struct Task {
 	pub id: u64,
 	pub title: String,
 	pub status: TaskStatus,
@@ -40,12 +40,12 @@ pub struct Database {
 }
 
 impl Database {
-	pub fn open(path: &str) -> Result<Self> {
-		let conn = Connection::open(path)?;
-		let mut db = Self { conn };
-		db.migrate()?;
-		Ok(db)
-	}
+    pub fn open(path: &str) -> Result<Self> {
+        let conn = Connection::open(path)?;
+        let mut db = Self { conn };
+        db.migrate()?;
+        Ok(db)
+    }
 
     fn migrate(&mut self) -> Result<()> {
         // Base table
