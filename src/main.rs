@@ -18,31 +18,21 @@ struct Cli {
 enum Commands {
     /// Add a new task
     Add {
-        /// Task description
         title: String,
-        /// Due date (YYYY-MM-DD)
         #[arg(short, long)]
         due: Option<NaiveDate>,
-        /// Tags (can use multiple times)
         #[arg(short, long)]
         tag: Vec<String>,
     },
-    /// List all tasks
+    /// List tasks
     List {
-        /// Show completed tasks too
         #[arg(short, long)]
         all: bool,
     },
-    /// Mark task as complete
-    Done {
-        /// Task ID
-        id: u64,
-    },
-    /// Remove a task permanently
-    Remove {
-        /// Task ID
-        id: u64,
-    },
+    /// Complete a task
+    Done { id: u64 },
+    /// Delete a task
+    Remove { id: u64 },
 }
 
 fn main() {
@@ -54,22 +44,20 @@ fn main() {
             let id = db.add_task(&title, due, tag.clone())
                 .expect("Failed to add task");
             
-            let due_str = due.map(|d| d.to_string())
-                .unwrap_or_else(|| "no due date".to_string());
-            
-            let tag_str = if tag.is_empty() {
-                "no tags".to_string()
-            } else {
-                format!("tags: {}", tag.join(", "))
-            };
-            
-            println!("{} {} {} (Due: {}, {})", 
-                "✓".green().bold(),
-                "Created task".green(),
+            println!("{} Created task {}: {}", 
+                "✓".green(),
                 id.to_string().cyan(),
-                due_str.yellow(),
-                tag_str.dimmed()
+                title.bold()
             );
+            
+            if let Some(d) = due {
+                println!("  Due: {}", d.to_string().yellow());
+            }
+            if !tag.is_empty() {
+                println!("  Tags: {}", 
+                    tag.iter().map(|t| format!("[{}]", t)).collect::<Vec<_>>().join(" ").dimmed()
+                );
+            }
         }
         
         Commands::List { all } => {
@@ -80,22 +68,19 @@ fn main() {
                 return;
             }
             
-            println!("{:<4} {:<10} {:<20} {:<12} {}", 
-                "ID".bold(), "STATUS".bold(), "TITLE".bold(), "DUE".bold(), "TAGS".bold()
+            println!("\n{:<4} {:<8} {:<25} {:<12} {}", 
+                "ID".bold().underline(),
+                "STATUS".bold().underline(),
+                "TITLE".bold().underline(),
+                "DUE".bold().underline(),
+                "TAGS".bold().underline()
             );
-            println!("{}", "─".repeat(60).dimmed());
             
             for task in tasks {
-                let status_icon = if task.status == TaskStatus::Done {
-                    "✓".green()
+                let status_str = if task.status == TaskStatus::Done {
+                    "✓ done".green()
                 } else {
-                    "○".dimmed()
-                };
-                
-                let status_text = if task.status == TaskStatus::Done {
-                    "done".green()
-                } else {
-                    "todo".white()
+                    "○ todo".white()
                 };
                 
                 let due_str = match task.due_date {
@@ -118,25 +103,31 @@ fn main() {
                     "".to_string()
                 } else {
                     task.tags.iter()
-                        .map(|t| format_tag(t))
+                        .map(|t| match t.as_ref() {
+                            "work" => format!("[{}]", t.yellow()),
+                            "personal" => format!("[{}]", t.blue()),
+                            "urgent" => format!("[{}]", t.red().bold()),
+                            _ => format!("[{}]", t.dimmed()),
+                        })
                         .collect::<Vec<_>>()
                         .join(" ")
                 };
                 
-                let title = if task.status == TaskStatus::Done {
+                let title_display = if task.status == TaskStatus::Done {
                     task.title.dimmed().to_string()
                 } else {
                     task.title.white().to_string()
                 };
                 
-                println!("{:<4} {:<10} {:<20} {:<12} {}", 
+                println!("{:<4} {:<8} {:<25} {:<12} {}", 
                     task.id.to_string().dimmed(),
-                    format!("{} {}", status_icon, status_text),
-                    truncate(&title, 20),
+                    status_str,
+                    truncate(&title_display, 25),
                     due_str,
                     tags_str
                 );
             }
+            println!();
         }
         
         Commands::Done { id } => {
@@ -144,46 +135,26 @@ fn main() {
                 Ok(true) => println!("{} Task {} marked as {}", 
                     "✓".green(), 
                     id.to_string().cyan(),
-                    "done".green()
+                    "done".green().bold()
                 ),
-                Ok(false) => println!("{} Task {} not found", 
-                    "✗".red(), 
-                    id
-                ),
+                Ok(false) => println!("{} Task {} not found", "✗".red(), id),
                 Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
             }
         }
         
         Commands::Remove { id } => {
             match db.delete_task(id) {
-                Ok(true) => println!("{} Task {} {}", 
-                    "🗑".red(), 
-                    id.to_string().cyan(),
-                    "deleted".red()
-                ),
-                Ok(false) => println!("{} Task {} not found", 
-                    "✗".red(), 
-                    id
-                ),
+                Ok(true) => println!("{} Task {} deleted", "🗑".red(), id.to_string().cyan()),
+                Ok(false) => println!("{} Task {} not found", "✗".red(), id),
                 Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
             }
         }
     }
 }
 
-fn format_tag(tag: &str) -> String {
-    let colored = match tag.as_str() {
-        "work" => tag.yellow(),
-        "personal" => tag.blue(),
-        "urgent" => tag.red().bold(),
-        _ => tag.dimmed(),
-    };
-    format!("[{}]", colored)
-}
-
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}…", &s[..max_len-1])
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() > max {
+        format!("{}…", &s[..max-1])
     } else {
         s.to_string()
     }
