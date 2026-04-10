@@ -2,8 +2,10 @@ use clap::{Parser, Subcommand};
 use chrono::NaiveDate;
 use colored::*;
 use db::{Database, TaskStatus};
+use engine::Engine;
 
 mod db;
+mod engine;
 
 #[derive(Parser)]
 #[command(name = "synaptic")]
