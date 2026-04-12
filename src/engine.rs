@@ -50,4 +50,9 @@ impl Engine {
     pub fn list_tasks(&self, show_done: bool) -> Result<Vec<Task>, String> {
         self.db.list_tasks(show_done).map_err(|e| e.to_string())
     }
+
+    // * FUTURE: Placeholder for task ranking logic once prioritization rules are finalized.
+    pub fn rank_tasks_placeholder(&self) -> Result<Vec<Task>, String> {
+        self.db.list_tasks(true).map_err(|e| e.to_string())
+    }
 }
