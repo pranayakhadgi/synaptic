@@ -38,9 +38,9 @@ enum Commands {
 }
 
 fn main() {
-    let db = Database::open("synaptic.db").expect("Failed to open database");
-    let cli = Cli::parse();
-    
+    //call the impl Database
+    let db = Database::open().expect("Failed to open database");
+    let cli = Cli::parse();    
     match cli.command {
         Commands::Add { title, due, tag } => {
             let id = db.add_task(&title, due, tag.clone())
