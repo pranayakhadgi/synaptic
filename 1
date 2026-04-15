@@ -1,0 +1,62 @@
+   Compiling synaptic v0.2.0 (/mnt/c/Users/prana/Desktop/hell2027/synaptic)
+warning: unused import: `engine::Engine`
+ --> src/main.rs:5:5
+  |
+5 | use engine::Engine;// this remains unused
+  |     ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::path::PathBuf`
+ --> src/db.rs:4:5
+  |
+4 | use std::path::PathBuf;//unsused
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: method `as_str` is never used
+  --> src/db.rs:23:12
+   |
+22 | impl TaskStatus {
+   | --------------- method in this implementation
+23 |     pub fn as_str(&self) -> &'static str {
+   |            ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `Engine` is never constructed
+ --> src/engine.rs:5:12
+  |
+5 | pub struct Engine {
+  |            ^^^^^^
+
+warning: struct `TaskSummary` is never constructed
+  --> src/engine.rs:10:12
+   |
+10 | pub struct TaskSummary {
+   |            ^^^^^^^^^^^
+
+warning: associated items `new`, `add_task`, `complete_task`, `delete_task`, `list_tasks`, and `rank_tasks_placeholder` are never used
+  --> src/engine.rs:19:12
+   |
+18 | impl Engine {
+   | ----------- associated items in this implementation
+19 |     pub fn new() -> Result<Self, String> {
+   |            ^^^
+...
+28 |     pub fn add_task(
+   |            ^^^^^^^^
+...
+40 |     pub fn complete_task(&self, id: u64) -> Result<bool, String> {
+   |            ^^^^^^^^^^^^^
+...
+45 |     pub fn delete_task(&self, id: u64) -> Result<bool, String> {
+   |            ^^^^^^^^^^^
+...
+50 |     pub fn list_tasks(&self, show_done: bool) -> Result<Vec<Task>,...
+   |            ^^^^^^^^^^
+...
+55 |     pub fn rank_tasks_placeholder(&self) -> Result<Vec<Task>, Stri...
+   |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `synaptic` (bin "synaptic") generated 6 warnings (run `cargo fix --bin "synaptic" -p synaptic` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.32s

@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use chrono::NaiveDate;
 use colored::*;
 use db::{Database, TaskStatus};
-use engine::Engine;
+use engine::Engine;// this remains unused
 
 mod db;
 mod engine;
@@ -20,7 +20,7 @@ struct Cli {
 enum Commands {
     /// Add a new task
     Add {
-        title: String,
+        eitle: String,
         #[arg(short, long)]
         due: Option<NaiveDate>,
         #[arg(short, long)]
@@ -35,12 +35,15 @@ enum Commands {
     Done { id: u64 },
     /// Delete a task
     Remove { id: u64 },
+    Remind, //reminder for due tasks
+    Init, //initialized the hook
 }
 
 fn main() {
     //call the impl Database
     let db = Database::open().expect("Failed to open database");
     let cli = Cli::parse();    
+
     match cli.command {
         Commands::Add { title, due, tag } => {
             let id = db.add_task(&title, due, tag.clone())
@@ -151,12 +154,40 @@ fn main() {
                 Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
             }
         }
+        
+        Commands::Remind => {
+            engine.remind();
+        }
+
+        Commands::Init => {
+            engine.init_shell_hook();
+        }
     }
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() > max {
-        format!("{}…", &s[..max-1])
+    // this prevents the visible character from being cut off when counting str length
+    let visible_chars: Vec<(usize, char)> = s.char_indices() //this peeks into the string
+    .scan(false, |in_escape, (i, c)| {
+        if *in_escape {
+            if c == 'm' { *in_escape = false; }
+            Some(None)
+        } else if c == '\x1b' {
+            *in_escape = true;
+            Some(None)
+        } else {
+            Some(Some(i, c))
+        }
+    })
+    .flatten()
+    .collect();
+
+    // if the visible length exceeds our max, we prevent the overflow by slicing the string
+    if visible_chars.len() > max {
+
+        // find the byte index of the last safe character
+        let(byte_idx, _) = visible_chars[max - 1];
+        format!("{}…", &s[..byte_idx])
     } else {
         s.to_string()
     }

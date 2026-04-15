@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc, NaiveDate};
 use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
+//unsused
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
