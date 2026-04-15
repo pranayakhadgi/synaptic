@@ -20,7 +20,7 @@ struct Cli {
 enum Commands {
     /// Add a new task
     Add {
-        eitle: String,
+        title: String,
         #[arg(short, long)]
         due: Option<NaiveDate>,
         #[arg(short, long)]
@@ -176,7 +176,7 @@ fn truncate(s: &str, max: usize) -> String {
             *in_escape = true;
             Some(None)
         } else {
-            Some(Some(i, c))
+            Some(Some((i, c)))
         }
     })
     .flatten()
