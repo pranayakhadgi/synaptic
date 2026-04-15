@@ -42,6 +42,8 @@ impl Engine {
     }
 
     pub fn remind(&self) {
+        use colored::Colorize;
+
         let today = Local::now().date_naive();
         let window = today + chrono::Duration::days(3);
 
@@ -51,7 +53,7 @@ impl Engine {
     }; 
     
     //filters to only task with a due date within th ewindow
-    fn out upcoming: Vec<&Task> = tasks.iter().filter(|t|  {
+    let upcoming: Vec<&Task> = tasks.iter().filter(|t|  {
         t.due_date.map(|d| {
             let due = d.date_naive();
             due <= window
@@ -86,31 +88,32 @@ impl Engine {
         );
     }
     println!();
-
-
-pub fn init_shell_hook(&self) {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into() );
-    let bashrc = format!("{}/.bashrc", home);
-    let hook = "\n# synaptic - surface upcoming tasks on terminal open\n
-    if command -v synaptic &>/dev/null; then synaptic remind; fi\n";
-
-    match std::fs::read_to_string(&bashrc) {
-        Ok(contents) => {
-            if contents.contains("synaptic remind") {
-                println!("{} Shell hook already installed.", "v".green());
-                return();
-            }
-        }
-        Err(_) => {}
     }
 
-    match std::fs::OpenOptions::new().append(true).create(true).open(&bashrc) {
-        Ok(mut file) => {
-            use std::io::Write;
-            file.write_all(hook.as_bytes()).expect("Failed to write hook");
-            println!("{} Shell hook installed.", "v".green());
-            println!(" Restart your terminal or run : {}", "source ~/.bashrc".cyan());
+    pub fn init_shell_hook(&self) {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into() );
+        let bashrc = format!("{}/.bashrc", home);
+        let hook = "\n# synaptic - surface upcoming tasks on terminal open\n
+        if command -v synaptic &>/dev/null; then synaptic remind; fi\n";
+
+        match std::fs::read_to_string(&bashrc) {
+            Ok(contents) => {
+                if contents.contains("synaptic remind") {
+                    println!("{} Shell hook already installed.", "v".green());
+                    return();
+                }
+            }
+            Err(_) => {}
         }
-        Err(e) => eprintln!("{} Failed to write to .bashrc: {}", "x".red(), e),
+
+        match std::fs::OpenOptions::new().append(true).create(true).open(&bashrc) {
+            Ok(mut file) => {
+                use std::io::Write;
+                file.write_all(hook.as_bytes()).expect("Failed to write hook");
+                println!("{} Shell hook installed.", "v".green());
+                println!(" Restart your terminal or run : {}", "source ~/.bashrc".cyan());
+            }
+            Err(e) => eprintln!("{} Failed to write to .bashrc: {}", "x".red(), e),
+        }
     }
 }
