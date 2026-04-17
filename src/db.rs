@@ -20,13 +20,6 @@ pub enum TaskStatus {
 }
 
 impl TaskStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            TaskStatus::Todo => "todo",
-            TaskStatus::Done => "done",
-        }
-    }
-    
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "todo" => Some(TaskStatus::Todo),
@@ -116,18 +109,32 @@ impl Database {
             let status_str: String = row.get(2)?;
             let due_str: Option<String> = row.get(3)?;
             let tags_json: String = row.get(4)?;
+
+            //fetched created_at as a get String
+            let created_str: String = row.get(5)?; 
+
+            let created_at = 
+            chrono::NaiveDateTime::parse_from_str(&created_str, "%Y-%m-%d %H:%M:%S")
+            .map(|ndt| ndt.and_utc())
+            .map_err(|e|{
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(e)
+                )
+            })?;
             
             Ok(Task {
                 id: row.get(0)?,
                 title: row.get(1)?,
                 status: TaskStatus::from_str(&status_str).unwrap_or(TaskStatus::Todo),
                 due_date: due_str.and_then(|d| {
-                    NaiveDate::parse_from_str(&d, "%Y-%m-%d")
+                    chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
                         .ok()
                         .map(|nd| nd.and_hms_opt(0,0,0).unwrap().and_utc())
                 }),
                 tags: serde_json::from_str(&tags_json).unwrap_or_default(),
-                created_at: row.get(5)?,
+                created_at,
             })
         })?;
         
