@@ -1,6 +1,6 @@
-//imports
-use crate::db::{Database, Task, TaskStatus};
-use chrono::{NaiveDate, Local, Duration};
+use crate::db::{Database, Task};
+use chrono::{NaiveDate, Local};
+use colored::Colorize;
 
 pub struct Engine {
     db: Database,
@@ -42,7 +42,6 @@ impl Engine {
     }
 
     pub fn remind(&self) {
-        use colored::Colorize;
 
         let today = Local::now().date_naive();
         let window = today + chrono::Duration::days(3);

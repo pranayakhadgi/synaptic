@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use chrono::NaiveDate;
 use colored::*;
-use db::{Database, TaskStatus};
-use engine::Engine;// this remains unused
+use db::TaskStatus;
+use engine::Engine;
 
 mod db;
 mod engine;
@@ -40,103 +40,107 @@ enum Commands {
 }
 
 fn main() {
-    //call the impl Database
-    let db = Database::open().expect("Failed to open database");
+    let engine = Engine::new().expect("Failed to initialize engine");
     let cli = Cli::parse();    
 
     match cli.command {
         Commands::Add { title, due, tag } => {
-            let id = db.add_task(&title, due, tag.clone())
-                .expect("Failed to add task");
-            
-            println!("{} Created task {}: {}", 
-                "✓".green(),
-                id.to_string().cyan(),
-                title.bold()
-            );
-            
-            if let Some(d) = due {
-                println!("  Due: {}", d.to_string().yellow());
-            }
-            if !tag.is_empty() {
-                println!("  Tags: {}", 
-                    tag.iter().map(|t| format!("[{}]", t)).collect::<Vec<_>>().join(" ").dimmed()
-                );
+            match engine.add_task(&title, due, tag.clone()) {
+                Ok(id) => {
+                    println!("{} Created task {}: {}", 
+                        "✓".green(),
+                        id.to_string().cyan(),
+                        title.bold()
+                    );
+                    
+                    if let Some(d) = due {
+                        println!("  Due: {}", d.to_string().yellow());
+                    }
+                    if !tag.is_empty() {
+                        println!("  Tags: {}", 
+                            tag.iter().map(|t| format!("[{}]", t)).collect::<Vec<_>>().join(" ").dimmed()
+                        );
+                    }
+                }
+                Err(e) => eprintln!("{} Error adding task: {}", "✗".red(), e),
             }
         }
         
         Commands::List { all } => {
-            let tasks = db.list_tasks(all).expect("Failed to list tasks");
-            
-            if tasks.is_empty() {
-                println!("{}", "No tasks found. Your mind is clear.".dimmed());
-                return;
-            }
-            
-            println!("\n{:<4} {:<8} {:<25} {:<12} {}", 
-                "ID".bold().underline(),
-                "STATUS".bold().underline(),
-                "TITLE".bold().underline(),
-                "DUE".bold().underline(),
-                "TAGS".bold().underline()
-            );
-            
-            for task in tasks {
-                let status_str = if task.status == TaskStatus::Done {
-                    "✓ done".green()
-                } else {
-                    "○ todo".white()
-                };
-                
-                let due_str = match task.due_date {
-                    Some(d) => {
-                        let today = chrono::Utc::now().date_naive();
-                        let due_naive = d.date_naive();
-                        
-                        if due_naive < today {
-                            d.format("%Y-%m-%d").to_string().red().to_string()
-                        } else if due_naive == today {
-                            "TODAY".yellow().to_string()
-                        } else {
-                            d.format("%Y-%m-%d").to_string().dimmed().to_string()
-                        }
+            match engine.list_tasks(all) {
+                Ok(tasks) => {
+                    if tasks.is_empty() {
+                        println!("{}", "No tasks found. Your mind is clear.".dimmed());
+                        return;
                     }
-                    None => "-".dimmed().to_string(),
-                };
-                
-                let tags_str = if task.tags.is_empty() {
-                    "".to_string()
-                } else {
-                    task.tags.iter()
-                        .map(|t| match t.as_ref() {
-                            "work" => format!("[{}]", t.yellow()),
-                            "personal" => format!("[{}]", t.blue()),
-                            "urgent" => format!("[{}]", t.red().bold()),
-                            _ => format!("[{}]", t.dimmed()),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                };
-                
-                let title_display = if task.status == TaskStatus::Done {
-                    task.title.dimmed().to_string()
-                } else {
-                    task.title.white().to_string()
-                };
-                
-                println!("{:<4} {:<8} {:<25} {:<12} {}", 
-                    task.id.to_string().dimmed(),
-                    status_str,
-                    truncate(&title_display, 25),
-                    due_str,
-                    tags_str
-                );
+                    
+                    println!("\n{:<4} {:<8} {:<25} {:<12} {}", 
+                        "ID".bold().underline(),
+                        "STATUS".bold().underline(),
+                        "TITLE".bold().underline(),
+                        "DUE".bold().underline(),
+                        "TAGS".bold().underline()
+                    );
+                    
+                    for task in tasks {
+                        let status_str = if task.status == TaskStatus::Done {
+                            "✓ done".green()
+                        } else {
+                            "○ todo".white()
+                        };
+                        
+                        let due_str = match task.due_date {
+                            Some(d) => {
+                                let today = chrono::Utc::now().date_naive();
+                                let due_naive = d.date_naive();
+                                
+                                if due_naive < today {
+                                    d.format("%Y-%m-%d").to_string().red().to_string()
+                                } else if due_naive == today {
+                                    "TODAY".yellow().to_string()
+                                } else {
+                                    d.format("%Y-%m-%d").to_string().dimmed().to_string()
+                                }
+                            }
+                            None => "-".dimmed().to_string(),
+                        };
+                        
+                        let tags_str = if task.tags.is_empty() {
+                            "".to_string()
+                        } else {
+                            task.tags.iter()
+                                .map(|t| match t.as_ref() {
+                                    "work" => format!("[{}]", t.yellow()),
+                                    "personal" => format!("[{}]", t.blue()),
+                                    "urgent" => format!("[{}]", t.red().bold()),
+                                    _ => format!("[{}]", t.dimmed()),
+                                })
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        };
+                        
+                        let title_display = if task.status == TaskStatus::Done {
+                            task.title.dimmed().to_string()
+                        } else {
+                            task.title.white().to_string()
+                        };
+                        
+                        println!("{:<4} {:<8} {:<25} {:<12} {}", 
+                            task.id.to_string().dimmed(),
+                            status_str,
+                            truncate(&title_display, 25),
+                            due_str,
+                            tags_str
+                        );
+                    }
+                    println!();
+                }
+                Err(e) => eprintln!("{} Error listing tasks: {}", "✗".red(), e),
             }
-            println!();
         }
         
         Commands::Done { id } => {
-            match db.complete_task(id) {
+            match engine.complete_task(id) {
                 Ok(true) => println!("{} Task {} marked as {}", 
                     "✓".green(), 
                     id.to_string().cyan(),
@@ -148,7 +152,7 @@ fn main() {
         }
         
         Commands::Remove { id } => {
-            match db.delete_task(id) {
+            match engine.delete_task(id) {
                 Ok(true) => println!("{} Task {} deleted", "🗑".red(), id.to_string().cyan()),
                 Ok(false) => println!("{} Task {} not found", "✗".red(), id),
                 Err(e) => eprintln!("{} Error: {}", "✗".red(), e),
@@ -164,6 +168,7 @@ fn main() {
         }
     }
 }
+
 
 fn truncate(s: &str, max: usize) -> String {
     // this prevents the visible character from being cut off when counting str length
