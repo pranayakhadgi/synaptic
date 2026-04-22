@@ -1,0 +1,34 @@
+# Synaptic CLI Command Cheat Sheet
+
+## Adding Tasks
+Add a new task with optional due date and tags:
+$ synaptic add "Buy groceries"
+$ synaptic add "Finish report" --due 2026-04-20
+$ synaptic add "Urgent meeting" --tag urgent --tag work
+
+## Listing Tasks
+View your current tasks:
+$ synaptic list          # Shows only 'todo' tasks
+$ synaptic list --all    # Shows both 'todo' and 'done' tasks
+
+## Managing Task Status
+Mark a task as completed using its ID:
+$ synaptic done 1
+
+## Deleting Tasks
+Remove a task permanently:
+$ synaptic remove 2
+
+## System Integration
+Surface upcoming tasks on terminal open (checks tasks due in next 3 days):
+$ synaptic remind
+
+Install the shell hook to automatically run 'remind' when you open a terminal:
+$ synaptic init
+
+## Display Hints
+Tasks are color-coded:
+- Overdue dates appear in RED
+- Today's dates appear in YELLOW
+- Upcoming dates appear in BLUE
+- Tags like 'urgent', 'work', and 'personal' have custom colors.

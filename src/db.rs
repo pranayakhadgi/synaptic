@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc, NaiveDate};
 use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
+//unsused
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
@@ -53,35 +54,6 @@ impl Database {
                 title TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'todo',
                 due_date TEXT,
-                tags TEXT DEFAULT '[]',
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )",
-            [],
-        )?;
-        Ok(())
-    }
-    
-    pub fn add_task(&self, title: &str, due: Option<NaiveDate>, tags: Vec<String>) -> Result<u64> {
-        let due_str = due.map(|d| d.format("%Y-%m-%d").to_string());
-        let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string());
-        
-        self.conn.execute(
-            "INSERT INTO tasks (title, due_date, tags) VALUES (?1, ?2, ?3)",
-            params![title, due_str, tags_json],
-        )?;
-        
-        Ok(self.conn.last_insert_rowid() as u64)
-    }
-    
-    pub fn complete_task(&self, id: u64) -> Result<bool> {
-        let changed = self.conn.execute(
-            "UPDATE tasks SET status = 'done' WHERE id = ?1",
-            [id],
-        )?;
-        Ok(changed > 0)
-    }
-    
-    pub fn delete_task(&self, id: u64) -> Result<bool> {
         let changed = self.conn.execute(
             "DELETE FROM tasks WHERE id = ?1",
             [id],
@@ -94,13 +66,13 @@ impl Database {
             "SELECT id, title, status, due_date, tags, created_at 
              FROM tasks 
              ORDER BY 
-                CASE status WHEN 'done' THEN 1 ELSE 0 END,
-                created_at DESC"
+                CASE status WHEN "done" THEN 1 ELSE 0 END,
+                created_at DESC "
         } else {
             "SELECT id, title, status, due_date, tags, created_at 
              FROM tasks 
-             WHERE status = 'todo'
-             ORDER BY created_at DESC"
+             WHERE status = "todo"
+             ORDER BY created_at DESC "
         };
         
         let mut stmt = self.conn.prepare(sql)?;
@@ -113,7 +85,7 @@ impl Database {
             let created_str: String = row.get(5)?; 
 
             let created_at = 
-            chrono::NaiveDateTime::parse_from_str(&created_str, "%Y-%m-%d %H:%M:%S")
+            chrono::NaiveDateTime::parse_from_str(&created_str, "%Y-%m-%d %H:%M:%S ")
             .map(|ndt| ndt.and_utc())
             .map_err(|e|{
                 rusqlite::Error::FromSqlConversionFailure(
@@ -128,7 +100,7 @@ impl Database {
                 title: row.get(1)?,
                 status: TaskStatus::from_str(&status_str).unwrap_or(TaskStatus::Todo),
                 due_date: due_str.and_then(|d| {
-                    chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
+                    chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d ")
                         .ok()
                         .map(|nd| nd.and_hms_opt(0,0,0).unwrap().and_utc())
                 }),
